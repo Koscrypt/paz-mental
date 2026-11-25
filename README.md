@@ -13,8 +13,16 @@ Un proyecto de [Koscrypt](https://github.com/Koscrypt) · Licencia MIT · Androi
 | De un país que no permitiste | Se silencia: no timbra y queda como llamada perdida. |
 | Desconocido de un país permitido, primera vez | Se silencia. |
 | El mismo número vuelve a llamar en menos de 5 minutos | **Suena**: si alguien insiste, quizás es urgente. |
+| Desconocido del país del **modo domicilio**, mientras esté abierto | **Suena** a la primera. |
 
 Los países permitidos se eligen en la app. Por defecto solo está Colombia.
+
+### Modo domicilio
+
+¿Pediste un domicilio y te va a llamar un número que no tienes? En **Modo domicilio** eliges un país y
+una duración (15 min, 30 min, 1 h o 2 h). Mientras esté abierto, los desconocidos de ese país suenan a la
+primera, aunque ese país no esté entre los permitidos. Al vencer se cierra solo; **Terminar ahora** lo
+cierra antes. Los números ocultos se siguen rechazando.
 
 ## Privacidad
 
@@ -30,6 +38,8 @@ con el rol `ROLE_CALL_SCREENING`.
 
 - No identifica quién llama ni usa listas de spam: aplica tus reglas, nada más.
 - Un número sin prefijo internacional se asume colombiano (+57).
+- Un celular colombiano que el operador entrega con un +1 delante (`+1 57 3XX…`, 12 dígitos tras el +1)
+  se lee como colombiano.
 - Si tu app de Teléfono tiene su propio filtro de spam, ambos actúan.
 
 ## Instalar

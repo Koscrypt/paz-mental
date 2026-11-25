@@ -9,9 +9,14 @@ import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
+import android.widget.ArrayAdapter;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Set;
 
 public class MainActivity extends Activity {
@@ -22,6 +27,9 @@ public class MainActivity extends Activity {
     private TextView estado;
     private Button activar;
     private TextView registro;
+    private TextView domicilioEstado;
+    private Button domicilioTerminar;
+    private final Runnable refrescarAlVencer = this::refrescar;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -52,6 +60,44 @@ public class MainActivity extends Activity {
         activar.setText("Activar Paz Mental");
         activar.setOnClickListener(v -> pedirRol());
         col.addView(activar);
+
+        TextView td = texto("Modo domicilio", 20, true);
+        td.setPadding(0, dp(24), 0, dp(4));
+        col.addView(td);
+        col.addView(texto("¿Esperas un domicilio? Elige el país y por cuánto tiempo: "
+                + "los desconocidos de ese país suenan a la primera. "
+                + "Los números ocultos se siguen rechazando.", 14, false));
+        Spinner paisDomicilio = new Spinner(this);
+        String[] nombres = new String[Reglas.PAISES.length];
+        for (int i = 0; i < nombres.length; i++) {
+            nombres[i] = Reglas.PAISES[i][1] + "  (+" + Reglas.PAISES[i][0] + ")";
+        }
+        ArrayAdapter<String> ad = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, nombres);
+        ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        paisDomicilio.setAdapter(ad);
+        col.addView(paisDomicilio);
+        LinearLayout duraciones = new LinearLayout(this);
+        duraciones.setOrientation(LinearLayout.HORIZONTAL);
+        for (int min : Reglas.DURACIONES_DOMICILIO_MIN) {
+            Button bd = new Button(this);
+            bd.setText(min < 60 ? min + " min" : (min / 60) + " h");
+            bd.setOnClickListener(v -> {
+                String pais = Reglas.PAISES[paisDomicilio.getSelectedItemPosition()][0];
+                almacen.abrirDomicilio(pais, System.currentTimeMillis() + min * 60_000L);
+                refrescar();
+            });
+            duraciones.addView(bd, new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        col.addView(duraciones);
+        domicilioEstado = texto("", 15, true);
+        domicilioEstado.setPadding(0, dp(4), 0, dp(4));
+        col.addView(domicilioEstado);
+        domicilioTerminar = new Button(this);
+        domicilioTerminar.setText("Terminar ahora");
+        domicilioTerminar.setOnClickListener(v -> { almacen.cerrarDomicilio(); refrescar(); });
+        col.addView(domicilioTerminar);
 
         TextView tp = texto("Países permitidos", 20, true);
         tp.setPadding(0, dp(24), 0, dp(4));
@@ -95,8 +141,30 @@ public class MainActivity extends Activity {
         boolean activo = rm != null && rm.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
         estado.setText(activo ? "● Activa: filtrando llamadas" : "○ Inactiva");
         activar.setEnabled(!activo);
+
+        long ahora = System.currentTimeMillis();
+        String pd = almacen.domicilioPais();
+        long fin = almacen.domicilioFin();
+        domicilioEstado.removeCallbacks(refrescarAlVencer);
+        if (Reglas.domicilioActivo(pd, fin, ahora)) {
+            String hora = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(fin));
+            domicilioEstado.setText("● Abierto para " + Reglas.nombrePais(pd) + " hasta las " + hora);
+            domicilioTerminar.setEnabled(true);
+            domicilioEstado.postDelayed(refrescarAlVencer, fin - ahora + 1000);
+        } else {
+            if (!pd.isEmpty()) almacen.cerrarDomicilio();
+            domicilioEstado.setText("○ Cerrado");
+            domicilioTerminar.setEnabled(false);
+        }
+
         String r = almacen.registro();
         registro.setText(r.isEmpty() ? "Sin llamadas filtradas todavía." : r);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        domicilioEstado.removeCallbacks(refrescarAlVencer);
     }
 
     private void pedirRol() {

@@ -19,6 +19,8 @@ final class Almacen {
     private static final String K_PAISES = "paises";
     private static final String K_INTENTOS = "intentos";
     private static final String K_REGISTRO = "registro";
+    private static final String K_DOMICILIO_PAIS = "domicilio_pais";
+    private static final String K_DOMICILIO_FIN = "domicilio_fin";
     private static final int MAX_REGISTRO = 50;
 
     private final SharedPreferences sp;
@@ -55,6 +57,24 @@ final class Almacen {
             }
         }
         sp.edit().putString(K_INTENTOS, sb.toString()).apply();
+    }
+
+    /** Prefijo del país del modo domicilio, o "" si nunca se abrió o se cerró. */
+    String domicilioPais() {
+        return sp.getString(K_DOMICILIO_PAIS, "");
+    }
+
+    /** Instante (ms) en que se cierra el modo domicilio; 0 si no hay. */
+    long domicilioFin() {
+        return sp.getLong(K_DOMICILIO_FIN, 0L);
+    }
+
+    void abrirDomicilio(String pais, long fin) {
+        sp.edit().putString(K_DOMICILIO_PAIS, pais).putLong(K_DOMICILIO_FIN, fin).apply();
+    }
+
+    void cerrarDomicilio() {
+        sp.edit().remove(K_DOMICILIO_PAIS).remove(K_DOMICILIO_FIN).apply();
     }
 
     void anotar(String numero, String decision) {

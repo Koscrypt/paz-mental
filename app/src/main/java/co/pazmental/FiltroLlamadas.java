@@ -24,7 +24,8 @@ public class FiltroLlamadas extends CallScreeningService {
         Almacen a = new Almacen(this);
         long ahora = System.currentTimeMillis();
         Map<String, Long> intentos = a.intentos();
-        Reglas.Decision dec = Reglas.decidir(numero, oculto, a.paises(), intentos, ahora);
+        Reglas.Decision dec = Reglas.decidir(numero, oculto, a.paises(), intentos, ahora,
+                a.domicilioPais(), a.domicilioFin());
         a.guardarIntentos(intentos, ahora);
 
         CallResponse.Builder r = new CallResponse.Builder();
@@ -42,6 +43,9 @@ public class FiltroLlamadas extends CallScreeningService {
             case SILENCIAR_PRIMERA:
                 r.setSilenceCall(true);
                 etiqueta = "desconocido: silenciada (si insiste en 5 min, suena)";
+                break;
+            case SONAR_DOMICILIO:
+                etiqueta = "modo domicilio: SONÓ";
                 break;
             default:
                 etiqueta = "insistió: SONÓ";
