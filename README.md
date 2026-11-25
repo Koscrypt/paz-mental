@@ -2,7 +2,7 @@
 
 **Filtro de llamadas para Android que silencia a desconocidos, sin enviar un solo dato fuera de tu teléfono.**
 
-Un proyecto de [Koscrypt](https://github.com/koscryptExternal) · Licencia MIT · Android 11+
+Un proyecto de [Koscrypt](https://github.com/Koscrypt) · Licencia MIT · Android 11+
 
 ## Reglas
 
