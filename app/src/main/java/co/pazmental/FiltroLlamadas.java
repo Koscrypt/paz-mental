@@ -25,21 +25,16 @@ public class FiltroLlamadas extends CallScreeningService {
         long ahora = System.currentTimeMillis();
         Map<String, Long> intentos = a.intentos();
         Reglas.Decision dec = Reglas.decidir(numero, oculto, a.paises(), intentos, ahora,
-                a.domicilioPais(), a.domicilioFin());
+                a.domicilioPais(), a.domicilioFin(), a.confianza(), a.bloqueados(), a.enDescanso(ahora));
         a.guardarIntentos(intentos, ahora);
 
         CallResponse.Builder r = new CallResponse.Builder();
-        switch (dec) {
-            case RECHAZAR_OCULTO:
-                r.setDisallowCall(true).setRejectCall(true)
-                        .setSkipCallLog(false).setSkipNotification(true);
-                break;
-            case SILENCIAR_PAIS:
-            case SILENCIAR_PRIMERA:
-                r.setSilenceCall(true);
-                break;
-            default:
-                break; // SONAR_*: timbra
+        if (dec == Reglas.Decision.RECHAZAR_OCULTO) {
+            r.setDisallowCall(true).setRejectCall(true)
+                    .setSkipCallLog(false).setSkipNotification(true);
+        } else if (!Reglas.suena(dec)) {
+            // Todo lo que no timbra se silencia: un resultado nuevo nunca suena por omisión.
+            r.setSilenceCall(true);
         }
         respondToCall(d, r.build());
         a.anotar(new Evento(ahora, oculto ? "" : Reglas.normalizar(numero), dec));

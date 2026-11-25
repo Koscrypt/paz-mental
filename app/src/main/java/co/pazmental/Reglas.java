@@ -1,5 +1,6 @@
 package co.pazmental;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -17,7 +18,34 @@ public final class Reglas {
     /** Duraciones que ofrece el modo domicilio, en minutos. */
     public static final int[] DURACIONES_DOMICILIO_MIN = {15, 30, 60, 120};
 
-    public enum Decision { RECHAZAR_OCULTO, SILENCIAR_PAIS, SILENCIAR_PRIMERA, SONAR_INSISTE, SONAR_DOMICILIO }
+    /**
+     * Qué se hace con la llamada. Los valores nuevos van al final: el historial guarda el nombre,
+     * así que reordenar no rompe nada, pero se mantiene el orden por claridad.
+     */
+    public enum Decision {
+        RECHAZAR_OCULTO, SILENCIAR_PAIS, SILENCIAR_PRIMERA, SONAR_INSISTE, SONAR_DOMICILIO,
+        /** El número está en la lista de confianza. */
+        SONAR_CONFIANZA,
+        /** El número está en la lista de bloqueados. */
+        SILENCIAR_BLOQUEADO,
+        /** Llegó dentro del horario de descanso. */
+        SILENCIAR_DESCANSO
+    }
+
+    /** ¿Timbra la llamada con esta decisión? */
+    public static boolean suena(Decision d) {
+        return d == Decision.SONAR_INSISTE || d == Decision.SONAR_DOMICILIO || d == Decision.SONAR_CONFIANZA;
+    }
+
+    /**
+     * ¿Cae {@code minuto} (minutos desde la medianoche, 0–1439) en el horario de descanso?
+     * El horario puede cruzar la medianoche (22:00 a 07:00). Si inicio y fin son iguales, no hay horario.
+     */
+    public static boolean enDescanso(int minuto, int inicio, int fin) {
+        if (inicio == fin) return false;
+        if (inicio < fin) return minuto >= inicio && minuto < fin;
+        return minuto >= inicio || minuto < fin;
+    }
 
     /** País (prefijo), nombre visible. Orden: el de la pantalla. */
     public static final String[][] PAISES = {
@@ -104,15 +132,36 @@ public final class Reglas {
     public static Decision decidir(String crudo, boolean oculto, Set<String> permitidos,
                                    Map<String, Long> intentos, long ahora,
                                    String paisDomicilio, long finDomicilio) {
+        return decidir(crudo, oculto, permitidos, intentos, ahora, paisDomicilio, finDomicilio,
+                Collections.<String>emptySet(), Collections.<String>emptySet(), false);
+    }
+
+    /**
+     * Decide con todas las reglas. Orden de precedencia:
+     * oculto → bloqueado → confianza → modo domicilio → descanso → país → insistencia.
+     * @param confianza números normalizados que siempre suenan.
+     * @param bloqueados números normalizados que siempre se silencian.
+     * @param descanso ¿estamos dentro del horario de descanso?
+     */
+    public static Decision decidir(String crudo, boolean oculto, Set<String> permitidos,
+                                   Map<String, Long> intentos, long ahora,
+                                   String paisDomicilio, long finDomicilio,
+                                   Set<String> confianza, Set<String> bloqueados, boolean descanso) {
         String n = normalizar(crudo);
         // Los ocultos se rechazan siempre, también con el modo domicilio abierto.
         if (oculto || n.isEmpty()) return Decision.RECHAZAR_OCULTO;
+        // Lo que el usuario decidió para un número gana sobre las reglas generales.
+        if (bloqueados.contains(n)) return Decision.SILENCIAR_BLOQUEADO;
+        if (confianza.contains(n)) return Decision.SONAR_CONFIANZA;
 
         String pais = pais(n);
         // Modo domicilio: el país elegido suena a la primera, esté o no en los permitidos.
+        // Lo abre el usuario a propósito, así que también gana sobre el horario de descanso.
         if (domicilioActivo(paisDomicilio, finDomicilio, ahora) && pais.equals(paisDomicilio)) {
             return Decision.SONAR_DOMICILIO;
         }
+        // En descanso no suena ningún desconocido, aunque insista; tampoco cuenta como intento.
+        if (descanso) return Decision.SILENCIAR_DESCANSO;
         if (pais.isEmpty() || !permitidos.contains(pais)) return Decision.SILENCIAR_PAIS;
 
         Long previo = intentos.get(n);

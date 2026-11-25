@@ -247,7 +247,9 @@ final class Graficos {
                     txt.setTextSize(sp(c, 10.5f));
                     txt.setColor(i == elegida ? t.texto : t.textoSuave);
                     txt.setTypeface(i == elegida ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
-                    cv.drawText(etiquetas[i], x + w / 2, getHeight() - dp(c, 5), txt);
+                    float mitad = txt.measureText(etiquetas[i]) / 2;
+                    float cx = Math.max(mitad, Math.min(getWidth() - mitad, x + w / 2));
+                    cv.drawText(etiquetas[i], cx, getHeight() - dp(c, 5), txt);
                 }
             }
 

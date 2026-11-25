@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,6 +26,13 @@ final class Almacen {
     private static final String K_DOMICILIO_INICIO = "domicilio_inicio";
     private static final String K_DOMICILIO_FIN = "domicilio_fin";
     private static final String K_TEMA = "tema";
+    private static final String K_CONFIANZA = "confianza";
+    private static final String K_BLOQUEADOS = "bloqueados";
+    private static final String K_DESCANSO = "descanso";
+    private static final String K_DESCANSO_INICIO = "descanso_inicio";
+    private static final String K_DESCANSO_FIN = "descanso_fin";
+    private static final String K_DOMICILIO_ULTIMO_PAIS = "domicilio_ultimo_pais";
+    private static final String K_DOMICILIO_ULTIMA_DURACION = "domicilio_ultima_duracion";
     /** Llamadas que se guardan para el historial y las estadísticas. */
     static final int MAX_EVENTOS = 1000;
 
@@ -79,9 +87,80 @@ final class Almacen {
         return sp.getLong(K_DOMICILIO_FIN, 0L);
     }
 
+    /** Abre el modo domicilio y recuerda país y duración para el botón de ajustes rápidos. */
     void abrirDomicilio(String pais, long inicio, long fin) {
+        int min = (int) Math.round((fin - inicio) / 60_000.0);
         sp.edit().putString(K_DOMICILIO_PAIS, pais).putLong(K_DOMICILIO_INICIO, inicio)
-                .putLong(K_DOMICILIO_FIN, fin).apply();
+                .putLong(K_DOMICILIO_FIN, fin)
+                .putString(K_DOMICILIO_ULTIMO_PAIS, pais).putInt(K_DOMICILIO_ULTIMA_DURACION, min).apply();
+    }
+
+    /** País del último modo domicilio abierto; Colombia si nunca se abrió. */
+    String ultimoPaisDomicilio() {
+        return sp.getString(K_DOMICILIO_ULTIMO_PAIS, Reglas.PAIS_LOCAL);
+    }
+
+    /** Duración (min) del último modo domicilio abierto; 30 si nunca se abrió. */
+    int ultimaDuracionDomicilio() {
+        return sp.getInt(K_DOMICILIO_ULTIMA_DURACION, 30);
+    }
+
+    // ---------------------------------------------------------------- Listas por número
+
+    /** Números normalizados que siempre suenan. */
+    Set<String> confianza() {
+        return new HashSet<>(sp.getStringSet(K_CONFIANZA, Collections.<String>emptySet()));
+    }
+
+    /** Números normalizados que siempre se silencian. */
+    Set<String> bloqueados() {
+        return new HashSet<>(sp.getStringSet(K_BLOQUEADOS, Collections.<String>emptySet()));
+    }
+
+    /** Pone el número en confianza (true) o bloqueados (false); lo saca de la otra lista. */
+    void ponerEnLista(String numero, boolean confiable) {
+        Set<String> c = confianza(), b = bloqueados();
+        if (confiable) { c.add(numero); b.remove(numero); }
+        else { b.add(numero); c.remove(numero); }
+        sp.edit().putStringSet(K_CONFIANZA, c).putStringSet(K_BLOQUEADOS, b).apply();
+    }
+
+    /** Saca el número de ambas listas. */
+    void quitarDeListas(String numero) {
+        Set<String> c = confianza(), b = bloqueados();
+        c.remove(numero);
+        b.remove(numero);
+        sp.edit().putStringSet(K_CONFIANZA, c).putStringSet(K_BLOQUEADOS, b).apply();
+    }
+
+    // ---------------------------------------------------------------- Horario de descanso
+
+    boolean descansoActivo() {
+        return sp.getBoolean(K_DESCANSO, false);
+    }
+
+    /** Minutos desde la medianoche; por defecto 22:00. */
+    int descansoInicio() {
+        return sp.getInt(K_DESCANSO_INICIO, 22 * 60);
+    }
+
+    /** Minutos desde la medianoche; por defecto 07:00. */
+    int descansoFin() {
+        return sp.getInt(K_DESCANSO_FIN, 7 * 60);
+    }
+
+    void guardarDescanso(boolean activo, int inicio, int fin) {
+        sp.edit().putBoolean(K_DESCANSO, activo).putInt(K_DESCANSO_INICIO, inicio)
+                .putInt(K_DESCANSO_FIN, fin).apply();
+    }
+
+    /** ¿Está activo el horario de descanso y cae {@code ahora} dentro de él (hora local)? */
+    boolean enDescanso(long ahora) {
+        if (!descansoActivo()) return false;
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(ahora);
+        int min = c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE);
+        return Reglas.enDescanso(min, descansoInicio(), descansoFin());
     }
 
     void cerrarDomicilio() {

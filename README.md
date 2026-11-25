@@ -14,6 +14,9 @@ Un proyecto de [Koscrypt](https://github.com/Koscrypt) · Licencia MIT · Androi
 | Desconocido de un país permitido, primera vez | Se silencia. |
 | El mismo número vuelve a llamar en menos de 5 minutos | **Suena**: si alguien insiste, quizás es urgente. |
 | Desconocido del país del **modo domicilio**, mientras esté abierto | **Suena** a la primera. |
+| Número que marcaste **de confianza** | **Suena** siempre, también en el horario de descanso. |
+| Número que **bloqueaste** | Se silencia siempre, aunque insista o esté abierto el modo domicilio. |
+| Desconocido dentro de tu **horario de descanso** | Se silencia aunque insista (salvo modo domicilio). |
 
 Los países permitidos se eligen en la app. Por defecto solo está Colombia.
 
@@ -31,8 +34,11 @@ cierra antes. Los números ocultos se siguen rechazando.
 - **Estadísticas** de los últimos 7, 30 o 90 días: qué pasó con cada llamada, llamadas por día (o por
   semana), a qué hora llaman (mapa de calor), de qué países, los números que más insisten y el historial.
   **Exportar CSV** guarda el periodo en el archivo que elijas, sin pedir permisos de almacenamiento.
-- **Ajustes:** tema **Sistema**, **Blanco** o **Negro** (negro puro para pantallas OLED), países
-  permitidos y borrado del historial.
+- **Ajustes:** tema **Sistema**, **Blanco** o **Negro** (negro puro para pantallas OLED), horario de
+  descanso, países permitidos, números de confianza y bloqueados, y borrado del historial.
+- **Historial:** toca una llamada para dejar ese número sonando siempre, silenciarlo siempre o copiarlo.
+- **Ajustes rápidos:** el botón **Modo domicilio** lo abre y lo cierra desde la cortina de
+  notificaciones, con el último país y la última duración que usaste.
 
 ## Privacidad
 

@@ -1,6 +1,8 @@
 package co.pazmental;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import co.pazmental.Reglas.Decision;
 
@@ -137,5 +139,83 @@ public class ReglasTest {
         Reglas.decidir("+1573001234567", false, soloColombia(), m, 0);
         assertEquals(Decision.SONAR_INSISTE,
                 Reglas.decidir("3001234567", false, soloColombia(), m, 2 * MIN));
+    }
+
+    // --- 1.3: listas por número y horario de descanso ---
+
+    private Set<String> uno(String n) {
+        Set<String> s = new HashSet<>();
+        s.add(n);
+        return s;
+    }
+
+    private Decision con(String crudo, Map<String, Long> m, long ahora, String paisDom, long finDom,
+                         Set<String> confianza, Set<String> bloqueados, boolean descanso) {
+        return Reglas.decidir(crudo, false, soloColombia(), m, ahora, paisDom, finDom, confianza, bloqueados, descanso);
+    }
+
+    @Test public void confianza_suena_a_la_primera_aunque_sea_de_otro_pais() {
+        assertEquals(Decision.SONAR_CONFIANZA, con("3001234567", new HashMap<>(), 0, "", 0,
+                uno("+573001234567"), new HashSet<>(), false));
+        assertEquals(Decision.SONAR_CONFIANZA, con("+13055551234", new HashMap<>(), 0, "", 0,
+                uno("+13055551234"), new HashSet<>(), false));
+    }
+
+    @Test public void confianza_suena_tambien_en_descanso() {
+        assertEquals(Decision.SONAR_CONFIANZA, con("3001234567", new HashMap<>(), 0, "", 0,
+                uno("+573001234567"), new HashSet<>(), true));
+    }
+
+    @Test public void bloqueado_se_silencia_siempre_incluso_con_domicilio_e_insistiendo() {
+        Map<String, Long> m = new HashMap<>();
+        Set<String> b = uno("+573001234567");
+        assertEquals(Decision.SILENCIAR_BLOQUEADO, con("3001234567", m, 0, "57", 30 * MIN, new HashSet<>(), b, false));
+        assertEquals(Decision.SILENCIAR_BLOQUEADO, con("3001234567", m, MIN, "57", 30 * MIN, new HashSet<>(), b, false));
+        assertTrue(m.isEmpty());
+    }
+
+    @Test public void oculto_gana_sobre_las_listas() {
+        assertEquals(Decision.RECHAZAR_OCULTO, Reglas.decidir("3001234567", true, soloColombia(), new HashMap<>(),
+                0, "", 0, uno("+573001234567"), new HashSet<>(), false));
+    }
+
+    @Test public void descanso_silencia_aunque_insista_y_no_cuenta_el_intento() {
+        Map<String, Long> m = new HashMap<>();
+        assertEquals(Decision.SILENCIAR_DESCANSO, con("3001234567", m, 0, "", 0, new HashSet<>(), new HashSet<>(), true));
+        assertEquals(Decision.SILENCIAR_DESCANSO, con("3001234567", m, MIN, "", 0, new HashSet<>(), new HashSet<>(), true));
+        assertTrue(m.isEmpty());
+        // Al salir del descanso, la primera llamada vuelve a ser "primera vez".
+        assertEquals(Decision.SILENCIAR_PRIMERA, con("3001234567", m, 2 * MIN, "", 0, new HashSet<>(), new HashSet<>(), false));
+    }
+
+    @Test public void domicilio_gana_sobre_el_descanso() {
+        assertEquals(Decision.SONAR_DOMICILIO, con("3001234567", new HashMap<>(), 0, "57", 30 * MIN,
+                new HashSet<>(), new HashSet<>(), true));
+    }
+
+    @Test public void horario_de_descanso_normal_y_cruzando_medianoche() {
+        int h = 60;
+        // 22:00 a 07:00
+        assertTrue(Reglas.enDescanso(23 * h, 22 * h, 7 * h));
+        assertTrue(Reglas.enDescanso(0, 22 * h, 7 * h));
+        assertTrue(Reglas.enDescanso(6 * h + 59, 22 * h, 7 * h));
+        assertFalse(Reglas.enDescanso(7 * h, 22 * h, 7 * h));
+        assertFalse(Reglas.enDescanso(12 * h, 22 * h, 7 * h));
+        assertTrue(Reglas.enDescanso(22 * h, 22 * h, 7 * h));
+        // 13:00 a 15:00 (siesta)
+        assertTrue(Reglas.enDescanso(14 * h, 13 * h, 15 * h));
+        assertFalse(Reglas.enDescanso(15 * h, 13 * h, 15 * h));
+        assertFalse(Reglas.enDescanso(12 * h, 13 * h, 15 * h));
+        // Inicio igual a fin: sin horario.
+        assertFalse(Reglas.enDescanso(10 * h, 10 * h, 10 * h));
+    }
+
+    @Test public void suena_solo_con_decisiones_que_timbran() {
+        assertTrue(Reglas.suena(Decision.SONAR_CONFIANZA));
+        assertTrue(Reglas.suena(Decision.SONAR_INSISTE));
+        assertTrue(Reglas.suena(Decision.SONAR_DOMICILIO));
+        assertFalse(Reglas.suena(Decision.SILENCIAR_BLOQUEADO));
+        assertFalse(Reglas.suena(Decision.SILENCIAR_DESCANSO));
+        assertFalse(Reglas.suena(Decision.RECHAZAR_OCULTO));
     }
 }

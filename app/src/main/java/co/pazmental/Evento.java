@@ -22,7 +22,7 @@ public final class Evento {
 
     /** ¿La llamada timbró? */
     public boolean sono() {
-        return decision == Decision.SONAR_INSISTE || decision == Decision.SONAR_DOMICILIO;
+        return Reglas.suena(decision);
     }
 
     /** Prefijo de país, o "" si es oculto o de un país fuera de la tabla. */

@@ -29,9 +29,13 @@ final class Tema {
     final int acento;
     final int rojo;
     final int ambar;
+    final int azul;
+    final int violeta;
 
     private Tema(boolean oscuro) {
         this.oscuro = oscuro;
+        azul = oscuro ? 0xFF6EA2FF : 0xFF3B76F0;
+        violeta = oscuro ? 0xFFB197FC : 0xFF7C5CDB;
         if (oscuro) {
             fondo = 0xFF000000;
             tarjeta = 0xFF0F1514;
@@ -84,6 +88,9 @@ final class Tema {
             case SILENCIAR_PAIS: return primarioSuave;
             case SILENCIAR_PRIMERA: return primario;
             case SONAR_DOMICILIO: return acento;
+            case SONAR_CONFIANZA: return azul;
+            case SILENCIAR_BLOQUEADO: return textoSuave;
+            case SILENCIAR_DESCANSO: return violeta;
             default: return ambar;
         }
     }

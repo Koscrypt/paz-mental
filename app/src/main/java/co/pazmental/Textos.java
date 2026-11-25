@@ -22,6 +22,9 @@ public final class Textos {
             case SILENCIAR_PAIS: return "Silenciada · país no permitido";
             case SILENCIAR_PRIMERA: return "Silenciada · primera vez";
             case SONAR_DOMICILIO: return "Sonó · modo domicilio";
+            case SONAR_CONFIANZA: return "Sonó · número de confianza";
+            case SILENCIAR_BLOQUEADO: return "Silenciada · número bloqueado";
+            case SILENCIAR_DESCANSO: return "Silenciada · horario de descanso";
             default: return "Sonó · insistió";
         }
     }
@@ -33,6 +36,9 @@ public final class Textos {
             case SILENCIAR_PAIS: return "Otro país";
             case SILENCIAR_PRIMERA: return "Primera vez";
             case SONAR_DOMICILIO: return "Domicilio";
+            case SONAR_CONFIANZA: return "Confianza";
+            case SILENCIAR_BLOQUEADO: return "Bloqueado";
+            case SILENCIAR_DESCANSO: return "Descanso";
             default: return "Insistió";
         }
     }
@@ -103,6 +109,13 @@ public final class Textos {
         c.set(Calendar.SECOND, 0);
         c.set(Calendar.MILLISECOND, 0);
         return c.getTimeInMillis();
+    }
+
+    /** Hora del día a partir de minutos desde la medianoche: "10:00 p. m.". */
+    public static String hora(int minutos) {
+        SimpleDateFormat f = new SimpleDateFormat("h:mm a", ES);
+        f.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return f.format(new Date(minutos * 60_000L));
     }
 
     /** Fecha larga para el encabezado: "25 de noviembre de 2026". */

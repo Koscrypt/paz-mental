@@ -53,7 +53,11 @@ public class MainActivity extends Activity {
     private static final Locale ES = Locale.forLanguageTag("es-CO");
     /** Orden en que se muestran los resultados en leyendas y gráficos. */
     private static final Decision[] ORDEN = {Decision.SILENCIAR_PRIMERA, Decision.SILENCIAR_PAIS,
-            Decision.RECHAZAR_OCULTO, Decision.SONAR_INSISTE, Decision.SONAR_DOMICILIO};
+            Decision.SILENCIAR_DESCANSO, Decision.SILENCIAR_BLOQUEADO, Decision.RECHAZAR_OCULTO,
+            Decision.SONAR_INSISTE, Decision.SONAR_DOMICILIO, Decision.SONAR_CONFIANZA};
+    /** Resultados de la 1.3: en la leyenda solo aparecen si hubo alguno. */
+    private static final Set<Decision> OPCIONALES = java.util.EnumSet.of(Decision.SILENCIAR_DESCANSO,
+            Decision.SILENCIAR_BLOQUEADO, Decision.SONAR_CONFIANZA);
     private static final String[] DIAS = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
 
     private Almacen almacen;
@@ -65,6 +69,8 @@ public class MainActivity extends Activity {
     private int rango = 7;
     private int paisDomicilio = 0;
     private int barraElegida = -1;
+    private Set<String> confianza = java.util.Collections.emptySet();
+    private Set<String> bloqueados = java.util.Collections.emptySet();
     private final Runnable tic = this::pintar;
 
     // ================================================================= Ciclo de vida
@@ -76,10 +82,11 @@ public class MainActivity extends Activity {
         setTheme(t.oscuro ? android.R.style.Theme_DeviceDefault_NoActionBar
                 : android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         super.onCreate(b);
+        paisDomicilio = indicePais(almacen.ultimoPaisDomicilio());
         if (b != null) {
             pestana = b.getInt("pestana", INICIO);
             rango = b.getInt("rango", 7);
-            paisDomicilio = b.getInt("paisDomicilio", 0);
+            paisDomicilio = b.getInt("paisDomicilio", paisDomicilio);
         }
 
         FrameLayout raiz = new FrameLayout(this);
@@ -170,6 +177,8 @@ public class MainActivity extends Activity {
         contenido.removeAllViews();
         long ahora = System.currentTimeMillis();
         List<Evento> eventos = almacen.eventos();
+        confianza = almacen.confianza();
+        bloqueados = almacen.bloqueados();
         encabezado(ahora);
         if (pestana == INICIO) pintarInicio(eventos, ahora);
         else if (pestana == ESTADISTICAS) pintarEstadisticas(eventos, ahora);
@@ -233,6 +242,19 @@ public class MainActivity extends Activity {
                 + (s.sonaron == 1 ? " sonó" : " sonaron"), 14, t.sobreHeroeSuave, 0);
         sem.setPadding(0, dp(8), 0, 0);
         h.addView(sem);
+        if (almacen.enDescanso(ahora)) {
+            LinearLayout desc = fila();
+            desc.setBackground(redondeado(Tema.alfa(0xFFFFFFFF, 0.12f), 14));
+            desc.setPadding(dp(12), dp(10), dp(12), dp(10));
+            desc.addView(new Icono(this, Icono.LUNA, t.sobreHeroe), new LinearLayout.LayoutParams(dp(18), dp(18)));
+            TextView td = texto("Horario de descanso hasta las " + Textos.hora(almacen.descansoFin())
+                    + ": ningún desconocido suena.", 14, t.sobreHeroe, 0);
+            td.setPadding(dp(10), 0, 0, 0);
+            desc.addView(td, pesado());
+            LinearLayout.LayoutParams ld = anchoCompleto();
+            ld.topMargin = dp(14);
+            h.addView(desc, ld);
+        }
         if (!activo) {
             TextView expl = texto("Para filtrar, Android debe usar Paz Mental como app de identificación "
                     + "de llamadas y spam.", 14, t.sobreHeroeSuave, 0);
@@ -274,6 +296,12 @@ public class MainActivity extends Activity {
         r.addView(regla(t.ambar, "Si vuelve a llamar en menos de 5 minutos, suena."));
         r.addView(regla(t.primarioSuave, "Los países que no permitiste se silencian siempre."));
         r.addView(regla(t.rojo, "Los números ocultos se rechazan."));
+        r.addView(regla(t.azul, "Tus números de confianza suenan siempre; los bloqueados, nunca. "
+                + "Toca una llamada del historial para elegir."));
+        if (almacen.descansoActivo()) {
+            r.addView(regla(t.violeta, "De " + Textos.hora(almacen.descansoInicio()) + " a "
+                    + Textos.hora(almacen.descansoFin()) + " ningún desconocido suena, aunque insista."));
+        }
         contenido.addView(r);
     }
 
@@ -308,6 +336,7 @@ public class MainActivity extends Activity {
             info.addView(texto("Suenan a la primera hasta las " + hora, 14, t.textoSuave, 0));
             TextView terminar = boton("Terminar ahora", t.tarjetaAlt, t.rojo, v -> {
                 almacen.cerrarDomicilio();
+                TileDomicilio.refrescar(this);
                 pintar();
             });
             LinearLayout.LayoutParams lf = new LinearLayout.LayoutParams(
@@ -331,6 +360,7 @@ public class MainActivity extends Activity {
                 TextView b = boton(m < 60 ? m + " min" : (m / 60) + " h", t.tarjetaAlt, t.texto, v -> {
                     long a = System.currentTimeMillis();
                     almacen.abrirDomicilio(Reglas.PAISES[paisDomicilio][0], a, a + m * 60_000L);
+                    TileDomicilio.refrescar(this);
                     pintar();
                 });
                 b.setPadding(0, dp(13), 0, dp(13));
@@ -459,6 +489,7 @@ public class MainActivity extends Activity {
         lr.bottomMargin = dp(6);
         dist.addView(ray, lr);
         for (int i = 0; i < ORDEN.length; i++) {
+            if (vals[i] == 0 && OPCIONALES.contains(ORDEN[i])) continue;
             int pct = s.total == 0 ? 0 : Math.round(vals[i] * 100f / s.total);
             dist.addView(filaLeyenda(cols[i], Textos.etiqueta(ORDEN[i]), vals[i], pct));
         }
@@ -633,6 +664,8 @@ public class MainActivity extends Activity {
         }
         contenido.addView(es);
 
+        tarjetaDescanso();
+
         // Países
         LinearLayout pa = tarjeta();
         pa.addView(titulo("Países permitidos"));
@@ -661,6 +694,9 @@ public class MainActivity extends Activity {
             pa.addView(fp);
         }
         contenido.addView(pa);
+
+        tarjetaNumeros();
+        tarjetaAjustesRapidos();
 
         // Privacidad
         LinearLayout pr = tarjeta();
@@ -694,7 +730,198 @@ public class MainActivity extends Activity {
         contenido.addView(pie, anchoCompleto());
     }
 
+    private void tarjetaDescanso() {
+        boolean activo = almacen.descansoActivo();
+        int ini = almacen.descansoInicio(), fin = almacen.descansoFin();
+        LinearLayout d = tarjeta();
+        LinearLayout td = fila();
+        td.addView(new Icono(this, Icono.LUNA, t.violeta), new LinearLayout.LayoutParams(dp(22), dp(22)));
+        TextView tt = titulo("Horario de descanso");
+        tt.setPadding(dp(10), 0, 0, 0);
+        td.addView(tt, pesado());
+        Graficos.Interruptor sw = new Graficos.Interruptor(this, t, activo);
+        sw.setContentDescription("Horario de descanso");
+        sw.alCambiar(on -> {
+            almacen.guardarDescanso(on, ini, fin);
+            contenido.postDelayed(this::pintar, 180); // deja terminar la animación
+        });
+        td.addView(sw, new LinearLayout.LayoutParams(dp(48), dp(28)));
+        d.addView(td);
+        TextView ex = texto("En este horario ningún desconocido suena, aunque insista. Tus contactos y tus "
+                + "números de confianza sí. El modo domicilio, si lo abres, también.", 14, t.textoSuave, 0);
+        ex.setPadding(0, dp(6), 0, 0);
+        d.addView(ex);
+
+        LinearLayout horas = fila();
+        horas.setPadding(0, dp(12), 0, 0);
+        horas.addView(selectorHora("Desde", ini, activo, m -> { almacen.guardarDescanso(activo, m, fin); pintar(); }), pesado());
+        LinearLayout.LayoutParams lh = pesado();
+        lh.leftMargin = dp(10);
+        horas.addView(selectorHora("Hasta", fin, activo, m -> { almacen.guardarDescanso(activo, ini, m); pintar(); }), lh);
+        d.addView(horas);
+        if (activo && ini == fin) d.addView(vacio("Inicio y fin son iguales: el horario no aplica."));
+        contenido.addView(d);
+    }
+
+    private interface AlElegirHora { void elegida(int minutos); }
+
+    private View selectorHora(String etiqueta, int minutos, boolean activo, AlElegirHora al) {
+        LinearLayout c = columna();
+        c.setPadding(dp(14), dp(10), dp(14), dp(12));
+        c.setBackground(conToque(redondeado(t.tarjetaAlt, 16), 16));
+        c.addView(texto(etiqueta, 12, t.textoSuave, 0));
+        c.addView(texto(Textos.hora(minutos), 18, activo ? t.texto : t.textoSuave, 1));
+        c.setAlpha(activo ? 1f : 0.55f);
+        c.setContentDescription(etiqueta + " " + Textos.hora(minutos));
+        c.setOnClickListener(v -> new android.app.TimePickerDialog(this,
+                (tp, h, m) -> al.elegida(h * 60 + m), minutos / 60, minutos % 60, false).show());
+        return c;
+    }
+
+    private void tarjetaNumeros() {
+        LinearLayout n = tarjeta();
+        n.addView(titulo("Números guardados"));
+        TextView ex = texto("Los de confianza suenan siempre; los bloqueados se silencian siempre. "
+                + "También puedes tocar una llamada del historial.", 14, t.textoSuave, 0);
+        ex.setPadding(0, dp(6), 0, 0);
+        n.addView(ex);
+        if (confianza.isEmpty() && bloqueados.isEmpty()) {
+            n.addView(vacio("Todavía no guardaste ninguno."));
+        }
+        for (String num : new java.util.TreeSet<>(confianza)) n.addView(filaNumero(num, true));
+        for (String num : new java.util.TreeSet<>(bloqueados)) n.addView(filaNumero(num, false));
+        LinearLayout.LayoutParams lb = anchoCompleto();
+        lb.topMargin = dp(14);
+        n.addView(boton("Agregar número", t.tarjetaAlt, t.texto, v -> agregarNumero()), lb);
+        contenido.addView(n);
+    }
+
+    private View filaNumero(String num, boolean confiable) {
+        LinearLayout f = fila();
+        f.setPadding(0, dp(12), 0, 0);
+        f.addView(insignia(Textos.bandera(Reglas.pais(num))));
+        TextView tx = texto(Textos.numero(num), 15, t.texto, 0);
+        tx.setPadding(dp(12), 0, dp(8), 0);
+        f.addView(tx, pesado());
+        f.addView(chip(confiable ? "Confianza" : "Bloqueado", confiable ? t.azul : t.textoSuave));
+        f.setOnClickListener(v -> acciones(num));
+        f.setContentDescription(Textos.numero(num) + (confiable ? ", de confianza" : ", bloqueado"));
+        return f;
+    }
+
+    private void tarjetaAjustesRapidos() {
+        LinearLayout q = tarjeta();
+        LinearLayout tq = fila();
+        tq.addView(new Icono(this, Icono.INICIO, t.primario), new LinearLayout.LayoutParams(dp(22), dp(22)));
+        TextView tt = titulo("Modo domicilio en ajustes rápidos");
+        tt.setPadding(dp(10), 0, 0, 0);
+        tq.addView(tt, pesado());
+        q.addView(tq);
+        int m = almacen.ultimaDuracionDomicilio();
+        String p = almacen.ultimoPaisDomicilio();
+        TextView ex = texto("Abre y cierra el modo domicilio desde la cortina de notificaciones, sin entrar a la app. "
+                + "Usa lo último que elegiste: " + Textos.bandera(p) + " " + Reglas.nombrePais(p) + " · "
+                + (m < 60 ? m + " min" : (m / 60) + " h") + ".", 14, t.textoSuave, 0);
+        ex.setPadding(0, dp(6), 0, 0);
+        q.addView(ex);
+        LinearLayout.LayoutParams lb = anchoCompleto();
+        lb.topMargin = dp(14);
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            q.addView(boton("Agregar a ajustes rápidos", t.primario, t.sobrePrimario, v -> pedirBotonRapido()), lb);
+        } else {
+            q.addView(vacio("Desliza dos veces la cortina, toca el lápiz y arrastra «Modo domicilio»."));
+        }
+        contenido.addView(q);
+    }
+
     // ================================================================= Acciones
+
+    /** Opciones para un número: confianza, bloqueo o quitarlo de las listas, y copiarlo. */
+    private void acciones(String num) {
+        boolean enConfianza = confianza.contains(num), enBloqueados = bloqueados.contains(num);
+        List<String> ops = new java.util.ArrayList<>();
+        List<Runnable> hacer = new java.util.ArrayList<>();
+        if (!enConfianza) {
+            ops.add("Dejar sonar siempre");
+            hacer.add(() -> { almacen.ponerEnLista(num, true); aviso(Textos.numero(num) + " ahora suena siempre"); });
+        }
+        if (!enBloqueados) {
+            ops.add("Silenciar siempre");
+            hacer.add(() -> { almacen.ponerEnLista(num, false); aviso(Textos.numero(num) + " queda silenciado"); });
+        }
+        if (enConfianza || enBloqueados) {
+            ops.add(enConfianza ? "Quitar de confianza" : "Quitar de bloqueados");
+            hacer.add(() -> { almacen.quitarDeListas(num); aviso("Vuelve a las reglas generales"); });
+        }
+        ops.add("Copiar número");
+        hacer.add(() -> {
+            android.content.ClipboardManager cm = getSystemService(android.content.ClipboardManager.class);
+            if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Número", num));
+        });
+        new AlertDialog.Builder(this)
+                .setTitle(Textos.numero(num))
+                .setItems(ops.toArray(new String[0]), (d, i) -> { hacer.get(i).run(); pintar(); })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    /** Pide un número a mano y lo guarda en confianza o bloqueados. */
+    private void agregarNumero() {
+        android.widget.EditText campo = new android.widget.EditText(this);
+        campo.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        campo.setHint("300 123 4567 o +1 305 555 1234");
+        campo.setSingleLine(true);
+        FrameLayout marco = new FrameLayout(this);
+        marco.setPadding(dp(22), dp(8), dp(22), 0);
+        marco.addView(campo);
+        AlertDialog d = new AlertDialog.Builder(this)
+                .setTitle("Agregar número")
+                .setMessage("Sin prefijo se asume Colombia (+57).")
+                .setView(marco)
+                .setPositiveButton("Confianza", null)
+                .setNeutralButton("Bloquear", null)
+                .setNegativeButton("Cancelar", null)
+                .create();
+        d.setOnShowListener(x -> {
+            View.OnClickListener guardar = v -> {
+                String n = Reglas.normalizar(campo.getText().toString());
+                if (n.length() < 8) {
+                    campo.setError("Número incompleto");
+                    return;
+                }
+                boolean confiable = v == d.getButton(AlertDialog.BUTTON_POSITIVE);
+                almacen.ponerEnLista(n, confiable);
+                d.dismiss();
+                aviso(Textos.numero(n) + (confiable ? " ahora suena siempre" : " queda silenciado"));
+                pintar();
+            };
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(guardar);
+            d.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(guardar);
+        });
+        d.show();
+    }
+
+    /** Android 13+: pide al sistema agregar el botón de modo domicilio a los ajustes rápidos. */
+    private void pedirBotonRapido() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return;
+        android.app.StatusBarManager sbm = getSystemService(android.app.StatusBarManager.class);
+        if (sbm == null) return;
+        sbm.requestAddTileService(new android.content.ComponentName(this, TileDomicilio.class), "Modo domicilio",
+                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_domicilio), getMainExecutor(),
+                r -> {
+                    if (r == android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) aviso("Botón agregado");
+                    else if (r == android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) aviso("Ya estaba agregado");
+                });
+    }
+
+    private void aviso(String s) {
+        Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
+    }
+
+    private int indicePais(String prefijo) {
+        for (int i = 0; i < Reglas.PAISES.length; i++) if (Reglas.PAISES[i][0].equals(prefijo)) return i;
+        return 0;
+    }
 
     private boolean rolActivo() {
         RoleManager rm = getSystemService(RoleManager.class);
@@ -844,11 +1071,24 @@ public class MainActivity extends Activity {
         LinearLayout col = columna();
         col.setPadding(dp(12), 0, dp(8), 0);
         String cuando = Textos.cuando(e.ts, ahora, TimeZone.getDefault());
+        String lista = confianza.contains(e.numero) ? " · de confianza"
+                : bloqueados.contains(e.numero) ? " · bloqueado" : "";
         col.addView(texto(Textos.numero(e.numero), 15, t.texto, 0));
-        col.addView(texto(cuando, 12, t.textoSuave, 0));
+        col.addView(texto(cuando + lista, 12, t.textoSuave, 0));
         f.addView(col, pesado());
         f.addView(chip(Textos.corta(e.decision), t.color(e.decision)));
-        f.setContentDescription(Textos.numero(e.numero) + ", " + Textos.etiqueta(e.decision) + ", " + cuando);
+        f.setContentDescription(Textos.numero(e.numero) + ", " + Textos.etiqueta(e.decision) + ", " + cuando + lista);
+        if (!e.numero.isEmpty()) {
+            // Fila tocable: acciones para ese número. El margen negativo deja el toque a todo lo ancho.
+            f.setBackground(conToque(redondeado(0, 14), 14));
+            f.setPadding(dp(6), dp(8), dp(6), dp(8));
+            LinearLayout.LayoutParams lp = anchoCompleto();
+            lp.topMargin = dp(4);
+            lp.leftMargin = -dp(6);
+            lp.rightMargin = -dp(6);
+            f.setLayoutParams(lp);
+            f.setOnClickListener(v -> acciones(e.numero));
+        }
         return f;
     }
 
