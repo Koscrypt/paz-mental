@@ -24,12 +24,25 @@ una duración (15 min, 30 min, 1 h o 2 h). Mientras esté abierto, los desconoci
 primera, aunque ese país no esté entre los permitidos. Al vencer se cierra solo; **Terminar ahora** lo
 cierra antes. Los números ocultos se siguen rechazando.
 
+## Pantallas
+
+- **Inicio:** estado del filtro, llamadas silenciadas hoy y en la semana, modo domicilio con su cuenta
+  regresiva y las últimas llamadas.
+- **Estadísticas** de los últimos 7, 30 o 90 días: qué pasó con cada llamada, llamadas por día (o por
+  semana), a qué hora llaman (mapa de calor), de qué países, los números que más insisten y el historial.
+  **Exportar CSV** guarda el periodo en el archivo que elijas, sin pedir permisos de almacenamiento.
+- **Ajustes:** tema **Sistema**, **Blanco** o **Negro** (negro puro para pantallas OLED), países
+  permitidos y borrado del historial.
+
 ## Privacidad
 
 - **Sin permisos peligrosos:** no lee tus contactos ni tu registro de llamadas.
 - **Sin internet:** el manifiesto no declara el permiso `INTERNET`.
 - **Sin cuentas, anuncios ni analítica.**
-- El historial de llamadas filtradas (últimas 50) vive solo en el almacenamiento privado de la app.
+- El historial de llamadas filtradas (últimas 1.000) vive solo en el almacenamiento privado de la app.
+  Las estadísticas se calculan en el teléfono a partir de ese historial.
+- El CSV exportado sale del teléfono solo si tú lo compartes. Las celdas que una hoja de cálculo tomaría
+  por fórmula (`=`, `+`, `-`, `@`) llevan un apóstrofo delante.
 
 Usa la API oficial de Android [`CallScreeningService`](https://developer.android.com/reference/android/telecom/CallScreeningService)
 con el rol `ROLE_CALL_SCREENING`.
@@ -57,7 +70,10 @@ Requiere Android Studio (JDK 21 incluido) y el SDK 36.
 ```
 
 La lógica de las reglas está en [`Reglas.java`](app/src/main/java/co/pazmental/Reglas.java), sin dependencias de Android, con pruebas en
-[`ReglasTest.java`](app/src/test/java/co/pazmental/ReglasTest.java). La app no tiene dependencias externas.
+[`ReglasTest.java`](app/src/test/java/co/pazmental/ReglasTest.java). Las estadísticas, el historial y el CSV
+(`Evento`, `Estadisticas`, `Csv`, `Textos`) también son Java puro, con pruebas en
+[`EstadisticasTest.java`](app/src/test/java/co/pazmental/EstadisticasTest.java). Los gráficos se dibujan a mano en
+[`Graficos.java`](app/src/main/java/co/pazmental/Graficos.java): la app no tiene dependencias externas.
 
 ## Seguridad
 

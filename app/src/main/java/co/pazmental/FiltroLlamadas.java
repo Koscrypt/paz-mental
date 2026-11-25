@@ -29,28 +29,19 @@ public class FiltroLlamadas extends CallScreeningService {
         a.guardarIntentos(intentos, ahora);
 
         CallResponse.Builder r = new CallResponse.Builder();
-        String etiqueta;
         switch (dec) {
             case RECHAZAR_OCULTO:
                 r.setDisallowCall(true).setRejectCall(true)
                         .setSkipCallLog(false).setSkipNotification(true);
-                etiqueta = "oculto: rechazada";
                 break;
             case SILENCIAR_PAIS:
-                r.setSilenceCall(true);
-                etiqueta = "país no permitido: silenciada";
-                break;
             case SILENCIAR_PRIMERA:
                 r.setSilenceCall(true);
-                etiqueta = "desconocido: silenciada (si insiste en 5 min, suena)";
-                break;
-            case SONAR_DOMICILIO:
-                etiqueta = "modo domicilio: SONÓ";
                 break;
             default:
-                etiqueta = "insistió: SONÓ";
+                break; // SONAR_*: timbra
         }
         respondToCall(d, r.build());
-        a.anotar(oculto || numero.isEmpty() ? "(oculto)" : numero, etiqueta);
+        a.anotar(new Evento(ahora, oculto ? "" : Reglas.normalizar(numero), dec));
     }
 }
