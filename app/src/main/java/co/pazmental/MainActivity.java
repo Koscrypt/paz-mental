@@ -58,7 +58,11 @@ public class MainActivity extends Activity {
     /** Resultados de la 1.3: en la leyenda solo aparecen si hubo alguno. */
     private static final Set<Decision> OPCIONALES = java.util.EnumSet.of(Decision.SILENCIAR_DESCANSO,
             Decision.SILENCIAR_BLOQUEADO, Decision.SONAR_CONFIANZA);
-    private static final String[] DIAS = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
+    private static final String APOYAR = "https://tatancho.com/apoyar/";
+    private static final String CONTACTO = "https://tatancho.com/contacto/";
+    private static final String REPO = "https://github.com/Koscrypt/paz-mental";
+    private static final String CORREO_KOSCRYPT = "admin@koscrypt.com";
+    private static final String[] DIAS ={"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
 
     private Almacen almacen;
     private Tema t;
@@ -718,6 +722,8 @@ public class MainActivity extends Activity {
         pr.addView(borrar, lb);
         contenido.addView(pr);
 
+        tarjetaAcercaDe();
+
         String version = "";
         try {
             version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
@@ -832,6 +838,62 @@ public class MainActivity extends Activity {
             q.addView(vacio("Desliza dos veces la cortina, toca el lápiz y arrastra «Modo domicilio»."));
         }
         contenido.addView(q);
+    }
+
+    /**
+     * Quién hizo la app, el cafecito y el contacto. Solo abre el navegador o el correo con un
+     * Intent: la app sigue sin permiso de internet. Versión GitHub: en Google Play el botón de
+     * cafecito hacia la web no cabe en la política de pagos.
+     */
+    private void tarjetaAcercaDe() {
+        LinearLayout a = tarjeta();
+        a.addView(titulo("Quién hizo Paz Mental"));
+        TextView yo = texto("La hice yo, Jhonatan Gutiérrez, arquitecto de seguridad en Bogotá. "
+                + "Es gratis, sin anuncios y de código abierto.", 14, t.textoSuave, 0);
+        yo.setPadding(0, dp(6), 0, 0);
+        a.addView(yo);
+        // Koscrypt se presenta como empresa: el autor es cofundador y accionista, pero su contrato
+        // laboral no le permite prestar servicios a terceros. Quien presta es el equipo de Koscrypt.
+        TextView ks = texto("Soy cofundador y accionista de Koscrypt S.A.S., compañía colombiana de "
+                + "ciberseguridad y desarrollo de software. Si tu empresa necesita apoyo, los servicios "
+                + "los presta su equipo.", 14, t.textoSuave, 0);
+        ks.setPadding(0, dp(8), 0, 0);
+        a.addView(ks);
+        TextView cafe = texto("Si Paz Mental te sirve, puedes invitarme un cafecito. Es voluntario: "
+                + "la app funciona igual.", 14, t.textoSuave, 0);
+        cafe.setPadding(0, dp(8), 0, 0);
+        a.addView(cafe);
+
+        LinearLayout.LayoutParams l1 = anchoCompleto();
+        l1.topMargin = dp(14);
+        a.addView(boton("Invítame un cafecito", t.primario, t.sobrePrimario,
+                v -> abrir(Uri.parse(APOYAR), APOYAR)), l1);
+        String asunto = "Paz Mental: ciberseguridad para mi empresa";
+        a.addView(boton("Koscrypt para empresas", t.tarjetaAlt, t.texto,
+                v -> abrir(Uri.parse("mailto:" + CORREO_KOSCRYPT + "?subject=" + Uri.encode(asunto)),
+                        CORREO_KOSCRYPT)), separado());
+        a.addView(boton("Contacto personal", t.tarjetaAlt, t.texto,
+                v -> abrir(Uri.parse(CONTACTO), CONTACTO)), separado());
+        a.addView(boton("Código fuente y reportar un problema", t.tarjetaAlt, t.texto,
+                v -> abrir(Uri.parse(REPO), REPO)), separado());
+        a.addView(vacio("Estos botones abren tu navegador o tu correo. La app sigue sin internet."));
+        contenido.addView(a);
+    }
+
+    private LinearLayout.LayoutParams separado() {
+        LinearLayout.LayoutParams l = anchoCompleto();
+        l.topMargin = dp(10);
+        return l;
+    }
+
+    /** Abre un enlace o un correo en otra app; si no hay ninguna, muestra la dirección. */
+    private void abrir(Uri destino, String mostrar) {
+        String accion = "mailto".equals(destino.getScheme()) ? Intent.ACTION_SENDTO : Intent.ACTION_VIEW;
+        try {
+            startActivity(new Intent(accion, destino));
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(this, "No hay una app para abrirlo: " + mostrar, Toast.LENGTH_LONG).show();
+        }
     }
 
     // ================================================================= Acciones
